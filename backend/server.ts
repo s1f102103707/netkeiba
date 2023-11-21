@@ -1,16 +1,17 @@
 import express from "express";
 import puppeteer from "puppeteer";
 import cheerio from "cheerio";
+import { DataFrame } from "data-forge";
 import fs from "fs";
 
 const app: express.Express = express();
 const port = 8000;
 
-const saveTableToJSON = (tableHTML: string) => {
+const saveRaceResultToJSON = (dataFrame: DataFrame) => {
   try {
-    const jsonData = { tableHTML };
-    fs.writeFileSync("tableData.json", JSON.stringify(jsonData));
-    console.log("テーブルデータがJSONファイルに保存されました");
+    const jsonData = dataFrame.toJSON();
+    fs.writeFileSync("RaceResultData.json", JSON.stringify(jsonData));
+    console.log("データがJSONファイルに保存されました");
   } catch (error) {
     console.error("JSONファイルへの保存中にエラーが発生しました:", error);
   }
@@ -31,10 +32,13 @@ app.get("/scrape", async (req, res) => {
     const tableHTML = $("table").html();
 
     if (tableHTML !== null) {
+      // データフレームの作成
+      const dataFrame = new DataFrame([tableHTML]);
+
+      // データフレームをJSONファイルに保存
+      saveRaceResultToJSON(dataFrame);
+
       const finalHTML = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"></head><body>${tableHTML}</body></html>`;
-
-      saveTableToJSON(tableHTML);
-
       res.header("Content-Type", "text/html; charset=utf-8");
       res.send(finalHTML);
     } else {
