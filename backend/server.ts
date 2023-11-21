@@ -1,29 +1,45 @@
 import express from "express";
-import axios from "axios";
+import puppeteer from "puppeteer";
 import cheerio from "cheerio";
-import iconv from "iconv-lite";
+import fs from "fs";
 
 const app: express.Express = express();
 const port = 8000;
 
-// app.get("/", (req: express.Request, res: express.Response) => {
-//   res.send("Hello, world!");
-// });
+const saveTableToJSON = (tableHTML: string) => {
+  try {
+    const jsonData = { tableHTML };
+    fs.writeFileSync("tableData.json", JSON.stringify(jsonData));
+    console.log("テーブルデータがJSONファイルに保存されました");
+  } catch (error) {
+    console.error("JSONファイルへの保存中にエラーが発生しました:", error);
+  }
+};
 
 app.get("/scrape", async (req, res) => {
   try {
-    const url = "https://db.netkeiba.com/race/202305040911/";
-    const response = await axios.get(url, { responseType: "arraybuffer" });
-    const html = iconv.decode(response.data, "Shift_JIS"); // サイトの文字コードに応じて変更
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    const url = "https://db.netkeiba.com/race/202309030811/";
+
+    await page.goto(url);
+    const html = await page.content();
+
+    await browser.close();
 
     const $ = cheerio.load(html);
     const tableHTML = $("table").html();
 
-    // HTMLのmetaタグにcharsetを追加する
-    const finalHTML = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"></head><body>${tableHTML}</body></html>`;
+    if (tableHTML !== null) {
+      const finalHTML = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"></head><body>${tableHTML}</body></html>`;
 
-    res.header("Content-Type", "text/html; charset=utf-8");
-    res.send(finalHTML);
+      saveTableToJSON(tableHTML);
+
+      res.header("Content-Type", "text/html; charset=utf-8");
+      res.send(finalHTML);
+    } else {
+      res.status(500).send("HTML table not found");
+    }
   } catch (error: any) {
     res.status(500).send((error as Error).message);
   }
